@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importar print (IA) — Diário de Trades</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="config-banner"></div>
+
+  <header class="topnav">
+    <div class="brand">📔 Diário de Trades</div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">☰</button>
+    <nav id="main-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="trades.html">Trades</a>
+      <a href="import.html">Importar CSV</a>
+      <a href="screenshot.html" class="active">Importar Print (IA)</a>
+      <button class="btn" id="logout-btn">Sair</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1 class="page-title">Importar trade a partir de um print</h1>
+    <p class="page-subtitle">
+      Suba (ou cole com Ctrl+V) um print da sua corretora e a IA tenta ler os dados da
+      operação pra você. Você sempre revisa e confirma antes de salvar.
+    </p>
+
+    <div class="card">
+      <label for="image-input" style="display: block; margin-bottom: 10px; font-size: 13px; font-weight: 500">
+        Escolher imagem (PNG, JPG ou WEBP, até ~6MB)
+      </label>
+      <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp" />
+      <p class="hint" style="margin-top: 8px">
+        Dica: também dá pra colar direto um print da área de transferência com Ctrl+V nesta página.
+      </p>
+
+      <div id="image-preview" style="margin-top: 16px"></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="analyze-btn" disabled>Analisar com IA</button>
+      </div>
+      <p class="error-text" id="analyze-error" style="display: none"></p>
+    </div>
+  </main>
+
+  <script type="module" src="js/screenshot-page.js"></script>
+</body>
+</html>

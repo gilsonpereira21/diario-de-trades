@@ -8,9 +8,11 @@ import {
   guessMapping,
   FIELD_DEFINITIONS,
 } from "./csv.js";
+import { initMobileNav } from "./nav.js";
 
 const banner = document.getElementById("config-banner");
 document.getElementById("logout-btn").addEventListener("click", signOut);
+initMobileNav();
 
 let userId = null;
 let csvData = { headers: [], rows: [] };

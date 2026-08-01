@@ -1,5 +1,6 @@
 import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
+import { initMobileNav } from "./nav.js";
 import {
   computeMetrics,
   performanceByAsset,
@@ -12,6 +13,7 @@ import { emotionEmoji, emotionLabel } from "./emotions.js";
 
 const banner = document.getElementById("config-banner");
 document.getElementById("logout-btn").addEventListener("click", signOut);
+initMobileNav();
 
 function formatCurrency(v) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -79,6 +81,7 @@ function renderRecentTrades(trades) {
   }
 
   el.innerHTML = `
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -101,7 +104,8 @@ function renderRecentTrades(trades) {
           })
           .join("")}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
 }
 
 async function main() {

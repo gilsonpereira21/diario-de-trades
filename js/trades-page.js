@@ -2,9 +2,11 @@ import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
 import { EMOTIONS, emotionEmoji, emotionLabel } from "./emotions.js";
 import { pnl, pnlPercent } from "./metrics.js";
+import { initMobileNav } from "./nav.js";
 
 const banner = document.getElementById("config-banner");
 document.getElementById("logout-btn").addEventListener("click", signOut);
+initMobileNav();
 
 const form = document.getElementById("trade-form");
 const formTitle = document.getElementById("form-title");
@@ -97,6 +99,7 @@ function renderTable(trades) {
   }
 
   el.innerHTML = `
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -126,7 +129,8 @@ function renderTable(trades) {
           })
           .join("")}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
 
   el.querySelectorAll(".edit-btn").forEach((btn) =>
     btn.addEventListener("click", () => {

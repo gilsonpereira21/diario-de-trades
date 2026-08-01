@@ -1,5 +1,5 @@
 import { isConfigured } from "./supabaseClient.js";
-import { signIn, signUp, redirectIfLoggedIn } from "./auth.js";
+import { signIn, signUp, signInWithGoogle, redirectIfLoggedIn } from "./auth.js";
 
 const banner = document.getElementById("config-banner");
 if (!isConfigured) {
@@ -60,5 +60,25 @@ form.addEventListener("submit", async (e) => {
     errorText.style.display = "block";
   } finally {
     submitBtn.disabled = false;
+  }
+});
+
+const googleBtn = document.getElementById("google-btn");
+googleBtn.addEventListener("click", async () => {
+  errorText.style.display = "none";
+  if (!isConfigured) {
+    errorText.textContent = "Supabase ainda não foi configurado (js/config.js).";
+    errorText.style.display = "block";
+    return;
+  }
+  googleBtn.disabled = true;
+  try {
+    await signInWithGoogle();
+    // o navegador é redirecionado para o Google; se chegar aqui é porque falhou.
+  } catch (err) {
+    errorText.style.color = "var(--critical)";
+    errorText.textContent = err.message || "Não foi possível iniciar o login com Google.";
+    errorText.style.display = "block";
+    googleBtn.disabled = false;
   }
 });

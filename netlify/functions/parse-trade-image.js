@@ -55,6 +55,7 @@ exports.handler = async (event) => {
   const authHeader = event.headers.authorization || event.headers.Authorization;
   const authorized = await verifySupabaseUser(authHeader);
   if (!authorized) {
+    console.error("Falha na autenticação Supabase. SUPABASE_URL definida:", !!process.env.SUPABASE_URL, "SUPABASE_ANON_KEY definida:", !!process.env.SUPABASE_ANON_KEY, "Authorization header presente:", !!authHeader);
     return { statusCode: 401, body: JSON.stringify({ error: "Não autenticado." }) };
   }
 
@@ -106,6 +107,7 @@ exports.handler = async (event) => {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
+      console.error("Gemini API error:", geminiRes.status, errText.slice(0, 1000));
       return {
         statusCode: 502,
         body: JSON.stringify({ error: "Falha ao consultar a IA.", detail: errText.slice(0, 500) }),
@@ -115,12 +117,14 @@ exports.handler = async (event) => {
     const data = await geminiRes.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
+      console.error("Gemini sem texto na resposta:", JSON.stringify(data).slice(0, 1000));
       return { statusCode: 502, body: JSON.stringify({ error: "A IA não retornou dados legíveis dessa imagem." }) };
     }
 
     const trade = JSON.parse(text);
     return { statusCode: 200, body: JSON.stringify({ trade }) };
   } catch (err) {
+    console.error("Erro inesperado na function:", err);
     return { statusCode: 500, body: JSON.stringify({ error: "Erro inesperado.", detail: String(err) }) };
   }
 };

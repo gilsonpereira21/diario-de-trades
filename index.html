@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Diário de Trades</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="config-banner"></div>
+
+  <header class="topnav">
+    <div class="brand">📔 Diário de Trades</div>
+    <nav>
+      <a href="index.html" class="active">Dashboard</a>
+      <a href="trades.html">Trades</a>
+      <a href="import.html">Importar CSV</a>
+      <button class="btn" id="logout-btn">Sair</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1 class="page-title">Visão geral</h1>
+    <p class="page-subtitle">Suas métricas de performance e comportamento em um só lugar.</p>
+
+    <div id="pattern-alerts"></div>
+
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <div class="card">
+      <h2>Curva de patrimônio</h2>
+      <div id="equity-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Desempenho por ativo</h2>
+      <div id="asset-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Desempenho por dia da semana</h2>
+      <div id="weekday-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Trades recentes</h2>
+      <div id="recent-trades"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

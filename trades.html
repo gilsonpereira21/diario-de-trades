@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trades — Diário de Trades</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="config-banner"></div>
+
+  <header class="topnav">
+    <div class="brand">📔 Diário de Trades</div>
+    <nav>
+      <a href="index.html">Dashboard</a>
+      <a href="trades.html" class="active">Trades</a>
+      <a href="import.html">Importar CSV</a>
+      <button class="btn" id="logout-btn">Sair</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1 class="page-title" id="form-title">Registrar trade</h1>
+    <p class="page-subtitle">Preencha os dados da operação. Deixe o preço de saída em branco enquanto o trade estiver aberto.</p>
+
+    <div class="card">
+      <form id="trade-form">
+        <input type="hidden" id="trade-id" />
+        <div class="form-grid">
+          <div class="field">
+            <label for="asset">Ativo</label>
+            <input type="text" id="asset" placeholder="Ex: PETR4, BTCUSD" required />
+          </div>
+          <div class="field">
+            <label for="side">Lado</label>
+            <select id="side" required>
+              <option value="compra">Compra</option>
+              <option value="venda">Venda</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="quantity">Quantidade</label>
+            <input type="number" id="quantity" min="0" step="any" required />
+          </div>
+          <div class="field">
+            <label for="entry_price">Preço de entrada</label>
+            <input type="number" id="entry_price" min="0" step="any" required />
+          </div>
+          <div class="field">
+            <label for="entry_at">Data/hora de entrada</label>
+            <input type="datetime-local" id="entry_at" required />
+          </div>
+          <div class="field">
+            <label for="stop_loss">Stop loss (opcional)</label>
+            <input type="number" id="stop_loss" min="0" step="any" />
+          </div>
+          <div class="field">
+            <label for="take_profit">Take profit (opcional)</label>
+            <input type="number" id="take_profit" min="0" step="any" />
+          </div>
+          <div class="field">
+            <label for="emotion_before">Estado emocional antes</label>
+            <select id="emotion_before"></select>
+          </div>
+
+          <div class="field">
+            <label for="exit_price">Preço de saída (se fechado)</label>
+            <input type="number" id="exit_price" min="0" step="any" />
+          </div>
+          <div class="field">
+            <label for="exit_at">Data/hora de saída</label>
+            <input type="datetime-local" id="exit_at" />
+          </div>
+          <div class="field">
+            <label for="emotion_after">Estado emocional depois</label>
+            <select id="emotion_after"></select>
+          </div>
+
+          <div class="field span-2">
+            <label for="notes">Notas</label>
+            <textarea id="notes" placeholder="O que motivou a entrada? Seguiu o plano?"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn" id="cancel-edit" style="display: none">Cancelar edição</button>
+          <button type="submit" class="btn btn-primary" id="save-btn">Salvar trade</button>
+        </div>
+        <p class="error-text" id="form-error" style="display: none"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Seus trades</h2>
+      <div id="trades-table"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/trades-page.js"></script>
+</body>
+</html>

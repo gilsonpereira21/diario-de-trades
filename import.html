@@ -30,10 +30,11 @@
 
     <div class="card" id="step-upload">
       <h2>1. Escolher arquivo</h2>
-      <input type="file" id="file-input" accept=".csv,text/csv" />
+      <input type="file" id="file-input" accept=".csv,text/csv,.html,.htm,text/html" />
       <p class="hint" style="margin-top: 10px">
-        Aceita CSV com vírgula ou ponto e vírgula como separador, números no formato
-        brasileiro (1.234,56) ou internacional (1,234.56), e datas em dd/mm/aaaa ou aaaa-mm-dd.
+        Aceita CSV (vírgula ou ponto e vírgula) ou uma página HTML com uma tabela
+        (ex: extrato salvo do navegador). Números no formato brasileiro (1.234,56) ou
+        internacional (1,234.56), e datas em dd/mm/aaaa ou aaaa-mm-dd.
       </p>
       <p class="error-text" id="upload-error" style="display: none"></p>
     </div>

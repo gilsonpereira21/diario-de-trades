@@ -100,13 +100,14 @@ continua acessível mas a análise retorna erro.
 - Gráficos: curva de patrimônio acumulado, desempenho por ativo, desempenho
   por dia da semana
 - Edição e exclusão de trades
-- **Importação de CSV** ([import.html](import.html)): sobe o extrato exportado
-  da corretora, mapeia as colunas (com sugestão automática de qual coluna é
-  qual campo), confirma o significado de cada valor de "lado" (compra/venda)
-  e importa tudo de uma vez. Aceita separador vírgula ou ponto e vírgula,
-  números em formato BR (1.234,56) ou internacional (1,234.56), e datas em
-  dd/mm/aaaa ou aaaa-mm-dd. Linhas com erro (data inválida, preço vazio etc.)
-  são sinalizadas e ignoradas sem travar o restante da importação.
+- **Importação de CSV ou HTML** ([import.html](import.html)): sobe o extrato
+  exportado da corretora (CSV, ou uma página HTML com uma tabela — ex: extrato
+  salvo do navegador), mapeia as colunas (com sugestão automática de qual
+  coluna é qual campo), confirma o significado de cada valor de "lado"
+  (compra/venda) e importa tudo de uma vez. Aceita separador vírgula ou ponto
+  e vírgula, números em formato BR (1.234,56) ou internacional (1,234.56), e
+  datas em dd/mm/aaaa ou aaaa-mm-dd. Linhas com erro (data inválida, preço
+  vazio etc.) são sinalizadas e ignoradas sem travar o restante da importação.
 - **Leitura de print via IA** ([screenshot.html](screenshot.html)): sobe (ou
   cola com Ctrl+V) um print da corretora, e o Gemini extrai ativo, lado,
   preço, quantidade e datas. Os dados caem no formulário de trade pra revisão

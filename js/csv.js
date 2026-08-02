@@ -63,6 +63,28 @@ export function parseCSV(text) {
   return { headers, rows: dataRows, delimiter };
 }
 
+// Lê a maior <table> de um HTML exportado (ex: extrato de operações salvo
+// como página web) e devolve no mesmo formato de parseCSV.
+export function parseHTMLTable(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const tables = [...doc.querySelectorAll("table")];
+  if (!tables.length) return { headers: [], rows: [] };
+
+  const table = tables.reduce((biggest, t) => {
+    const rows = t.querySelectorAll("tr").length;
+    return rows > (biggest?.querySelectorAll("tr").length || 0) ? t : biggest;
+  }, tables[0]);
+
+  const cellText = (cell) => cell.textContent.trim().replace(/\s+/g, " ");
+  const allRows = [...table.querySelectorAll("tr")]
+    .map((tr) => [...tr.querySelectorAll("th,td")].map(cellText))
+    .filter((r) => r.some((c) => c !== ""));
+
+  const headers = allRows[0] || [];
+  const dataRows = allRows.slice(1);
+  return { headers, rows: dataRows };
+}
+
 // Aceita "1.234,56" (BR), "1,234.56" (US), "1234.56", "R$ 1.234,56" etc.
 export function parseLocaleNumber(raw) {
   if (raw == null) return null;

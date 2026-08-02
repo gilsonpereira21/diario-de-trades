@@ -2,6 +2,7 @@ import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
 import {
   parseCSV,
+  parseHTMLTable,
   parseLocaleNumber,
   parseFlexibleDate,
   normalizeSide,
@@ -33,9 +34,18 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
 
   try {
     const text = await file.text();
-    csvData = parseCSV(text);
+    const looksLikeHtml =
+      file.type === "text/html" ||
+      /\.html?$/i.test(file.name) ||
+      /^\s*<(!doctype|html)/i.test(text);
+
+    csvData = looksLikeHtml ? parseHTMLTable(text) : parseCSV(text);
     if (!csvData.headers.length || !csvData.rows.length) {
-      throw new Error("Não consegui ler nenhuma linha desse arquivo. Confira se é mesmo um CSV.");
+      throw new Error(
+        looksLikeHtml
+          ? "Não encontrei nenhuma tabela legível nesse HTML."
+          : "Não consegui ler nenhuma linha desse arquivo. Confira se é mesmo um CSV."
+      );
     }
     renderMappingGrid(csvData.headers, guessMapping(csvData.headers));
     renderRawPreview(csvData.headers, csvData.rows.slice(0, 5));

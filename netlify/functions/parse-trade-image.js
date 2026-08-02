@@ -121,6 +121,16 @@ exports.handler = async (event) => {
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error("Gemini API error:", geminiRes.status, errText.slice(0, 1000));
+
+      if (geminiRes.status === 429) {
+        return {
+          statusCode: 429,
+          body: JSON.stringify({
+            error: "Limite de uso gratuito da IA atingido no momento. Espere alguns minutos e tente de novo.",
+          }),
+        };
+      }
+
       return {
         statusCode: 502,
         body: JSON.stringify({ error: "Falha ao consultar a IA.", detail: errText.slice(0, 500) }),

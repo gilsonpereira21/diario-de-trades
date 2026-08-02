@@ -7,7 +7,7 @@
 const MAX_BASE64_LENGTH = 8 * 1024 * 1024; // ~6MB de arquivo original em base64
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf"]);
 
-const RESPONSE_SCHEMA = {
+const TRADE_SCHEMA = {
   type: "OBJECT",
   properties: {
     asset: { type: "STRING", description: "Ticker/símbolo do ativo, ex: PETR4, BTCUSD" },
@@ -24,19 +24,30 @@ const RESPONSE_SCHEMA = {
   required: ["asset", "side", "quantity", "entry_price"],
 };
 
-const PROMPT = `Você está vendo um print de tela ou um PDF (nota de corretagem, confirmação de
-operação, extrato) de uma corretora ou plataforma de trading (ações, cripto ou forex)
-mostrando uma operação. Se for um PDF com várias operações, extraia apenas a primeira
-operação encontrada.
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    trades: { type: "ARRAY", items: TRADE_SCHEMA },
+  },
+  required: ["trades"],
+};
 
-Extraia os dados dessa operação no formato JSON pedido. Regras:
+const PROMPT = `Você está vendo um print de tela ou um PDF (nota de corretagem, confirmação de
+operação, extrato) de uma corretora ou plataforma de trading (ações, cripto ou forex).
+
+O arquivo pode conter UMA ou VÁRIAS operações (várias linhas numa tabela, várias notas
+numa mesma imagem, ou várias páginas num PDF). Extraia TODAS as operações que conseguir
+identificar, uma entrada por operação, na lista "trades" do JSON pedido.
+
+Regras para cada operação:
 - "side": use exatamente "compra" ou "venda" (compra = long/buy, venda = short/sell).
 - Datas em ISO 8601 (aaaa-mm-ddThh:mm:ss). Se não houver hora visível, use 00:00:00.
   Se não houver data nenhuma visível, use null.
-- Se um campo não aparecer na imagem, retorne null para ele (exceto asset, side,
+- Se um campo não aparecer no arquivo, retorne null para ele (exceto asset, side,
   quantity e entry_price, que são obrigatórios — faça sua melhor estimativa se
   não estiverem 100% claros).
-- Não invente valores que não conseguir ler na imagem.`;
+- Não invente valores que não conseguir ler no arquivo.
+- Se não encontrar nenhuma operação, retorne "trades": [].`;
 
 async function verifySupabaseUser(authHeader) {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -123,8 +134,9 @@ exports.handler = async (event) => {
       return { statusCode: 502, body: JSON.stringify({ error: "A IA não retornou dados legíveis dessa imagem." }) };
     }
 
-    const trade = JSON.parse(text);
-    return { statusCode: 200, body: JSON.stringify({ trade }) };
+    const parsed = JSON.parse(text);
+    const trades = Array.isArray(parsed.trades) ? parsed.trades : [];
+    return { statusCode: 200, body: JSON.stringify({ trades }) };
   } catch (err) {
     console.error("Erro inesperado na function:", err);
     return { statusCode: 500, body: JSON.stringify({ error: "Erro inesperado.", detail: String(err) }) };

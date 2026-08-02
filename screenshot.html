@@ -44,6 +44,19 @@
       </div>
       <p class="error-text" id="analyze-error" style="display: none"></p>
     </div>
+
+    <div class="card" id="step-review" style="display: none">
+      <h2>Revisar operações encontradas</h2>
+      <div id="review-summary" style="margin-bottom: 14px"></div>
+      <div id="review-table" style="overflow-x: auto"></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn" id="back-btn">Escolher outro arquivo</button>
+        <button type="button" class="btn btn-primary" id="import-btn">Importar trades válidos</button>
+      </div>
+      <p class="error-text" id="import-error" style="display: none"></p>
+      <div id="import-result" style="margin-top: 14px"></div>
+    </div>
   </main>
 
   <script type="module" src="js/screenshot-page.js"></script>

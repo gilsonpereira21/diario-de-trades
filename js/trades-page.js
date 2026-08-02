@@ -53,7 +53,6 @@ function resetForm() {
   saveBtn.textContent = "Salvar trade";
   cancelBtn.style.display = "none";
   formError.style.display = "none";
-  document.getElementById("ai-import-notice").innerHTML = "";
 }
 
 cancelBtn.addEventListener("click", resetForm);
@@ -77,46 +76,6 @@ function fillFormFromTrade(trade) {
   saveBtn.textContent = "Atualizar trade";
   cancelBtn.style.display = "inline-block";
   window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function fillFormFromExtracted(trade) {
-  document.getElementById("trade-id").value = "";
-  document.getElementById("asset").value = trade.asset || "";
-  document.getElementById("side").value = trade.side === "venda" ? "venda" : "compra";
-  document.getElementById("quantity").value = trade.quantity ?? "";
-  document.getElementById("entry_price").value = trade.entry_price ?? "";
-  document.getElementById("entry_at").value = toDatetimeLocal(trade.entry_at);
-  document.getElementById("stop_loss").value = trade.stop_loss ?? "";
-  document.getElementById("take_profit").value = trade.take_profit ?? "";
-  document.getElementById("exit_price").value = trade.exit_price ?? "";
-  document.getElementById("exit_at").value = toDatetimeLocal(trade.exit_at);
-  document.getElementById("notes").value = trade.notes || "";
-
-  formTitle.textContent = "Revisar trade importado por IA";
-  saveBtn.textContent = "Salvar trade";
-  cancelBtn.style.display = "inline-block";
-
-  document.getElementById("ai-import-notice").innerHTML = `
-    <div class="alert warning">
-      <span class="alert-icon">🤖</span>
-      <div>
-        <strong>Dados extraídos automaticamente da imagem — confira antes de salvar.</strong>
-        A IA não sabe seu estado emocional: preencha "Emoção antes/depois" manualmente.
-      </div>
-    </div>`;
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function checkPendingAiImport() {
-  const raw = sessionStorage.getItem("pendingImportTrade");
-  if (!raw) return;
-  sessionStorage.removeItem("pendingImportTrade");
-  try {
-    fillFormFromExtracted(JSON.parse(raw));
-  } catch {
-    // ignora se o JSON vier corrompido
-  }
 }
 
 function formatCurrency(v) {
@@ -266,7 +225,6 @@ async function main() {
   userId = session.user.id;
 
   await refresh();
-  checkPendingAiImport();
 }
 
 main();

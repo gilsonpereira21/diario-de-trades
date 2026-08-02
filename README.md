@@ -108,10 +108,12 @@ continua acessível mas a análise retorna erro.
   e vírgula, números em formato BR (1.234,56) ou internacional (1,234.56), e
   datas em dd/mm/aaaa ou aaaa-mm-dd. Linhas com erro (data inválida, preço
   vazio etc.) são sinalizadas e ignoradas sem travar o restante da importação.
-- **Leitura de print via IA** ([screenshot.html](screenshot.html)): sobe (ou
-  cola com Ctrl+V) um print da corretora, e o Gemini extrai ativo, lado,
-  preço, quantidade e datas. Os dados caem no formulário de trade pra revisão
-  — nada é salvo sem confirmação manual, já que a IA pode errar leituras.
+- **Leitura de print/PDF via IA** ([screenshot.html](screenshot.html)): sobe
+  (ou cola com Ctrl+V) um print, ou um PDF de nota de corretagem/confirmação,
+  e o Gemini extrai **todas** as operações que encontrar no arquivo (uma
+  imagem com várias linhas, ou um PDF com várias páginas) — não só a primeira.
+  Cai numa tabela de revisão igual à do importador de CSV, com checkbox por
+  linha; nada é salvo sem confirmação manual, já que a IA pode errar leituras.
 
 ## Fora do escopo deste MVP (próximas fatias)
 

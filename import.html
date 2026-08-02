@@ -39,6 +39,23 @@
       <p class="error-text" id="upload-error" style="display: none"></p>
     </div>
 
+    <div class="card" id="step-table-choice" style="display: none">
+      <h2>Qual tabela é a certa?</h2>
+      <p class="hint" style="margin-bottom: 14px">
+        Esse arquivo tem mais de uma tabela (comum em relatórios do MT5, por exemplo, que
+        misturam resumo de conta, ordens, negócios e posições). Escolha a que tem as suas
+        operações.
+      </p>
+      <div class="field" style="margin-bottom: 14px">
+        <label for="table-choice-select">Tabela</label>
+        <select id="table-choice-select"></select>
+      </div>
+      <div id="table-choice-preview" style="overflow-x: auto"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="table-choice-confirm">Usar esta tabela</button>
+      </div>
+    </div>
+
     <div class="card" id="step-mapping" style="display: none">
       <h2>2. Confirmar de onde vem cada dado</h2>
       <p class="hint" style="margin-bottom: 14px">

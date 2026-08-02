@@ -2,7 +2,7 @@ import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
 import {
   parseCSV,
-  parseHTMLTable,
+  parseHTMLTables,
   parseLocaleNumber,
   parseFlexibleDate,
   normalizeSide,
@@ -30,6 +30,9 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   const uploadError = document.getElementById("upload-error");
   uploadError.style.display = "none";
+  document.getElementById("step-table-choice").style.display = "none";
+  document.getElementById("step-mapping").style.display = "none";
+  document.getElementById("step-review").style.display = "none";
   if (!file) return;
 
   try {
@@ -39,23 +42,62 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
       /\.html?$/i.test(file.name) ||
       /^\s*<(!doctype|html)/i.test(text);
 
-    csvData = looksLikeHtml ? parseHTMLTable(text) : parseCSV(text);
-    if (!csvData.headers.length || !csvData.rows.length) {
-      throw new Error(
-        looksLikeHtml
-          ? "Não encontrei nenhuma tabela legível nesse HTML."
-          : "Não consegui ler nenhuma linha desse arquivo. Confira se é mesmo um CSV."
-      );
+    if (looksLikeHtml) {
+      const tables = parseHTMLTables(text);
+      if (!tables.length) {
+        throw new Error("Não encontrei nenhuma tabela legível nesse HTML.");
+      }
+      if (tables.length === 1) proceedWithTable(tables[0]);
+      else showTableChoice(tables);
+    } else {
+      const parsed = parseCSV(text);
+      if (!parsed.headers.length || !parsed.rows.length) {
+        throw new Error("Não consegui ler nenhuma linha desse arquivo. Confira se é mesmo um CSV.");
+      }
+      proceedWithTable(parsed);
     }
-    renderMappingGrid(csvData.headers, guessMapping(csvData.headers));
-    renderRawPreview(csvData.headers, csvData.rows.slice(0, 5));
-    document.getElementById("step-mapping").style.display = "block";
-    document.getElementById("step-review").style.display = "none";
   } catch (err) {
     uploadError.textContent = err.message || "Erro ao ler o arquivo.";
     uploadError.style.display = "block";
   }
 });
+
+function proceedWithTable(table) {
+  csvData = table;
+  renderMappingGrid(csvData.headers, guessMapping(csvData.headers));
+  renderRawPreview(csvData.headers, csvData.rows.slice(0, 5));
+  document.getElementById("step-table-choice").style.display = "none";
+  document.getElementById("step-mapping").style.display = "block";
+  document.getElementById("step-review").style.display = "none";
+}
+
+function showTableChoice(tables) {
+  const select = document.getElementById("table-choice-select");
+  const bestIndex = tables.reduce(
+    (best, t, i) => (t.rows.length > tables[best].rows.length ? i : best),
+    0
+  );
+
+  select.innerHTML = tables
+    .map((t, i) => {
+      const preview = t.headers.slice(0, 4).map(escapeHtml).join(", ");
+      return `<option value="${i}" ${i === bestIndex ? "selected" : ""}>Tabela ${i + 1} — ${t.headers.length} colunas, ${t.rows.length} linhas (${preview}${t.headers.length > 4 ? "…" : ""})</option>`;
+    })
+    .join("");
+
+  const renderChoicePreview = () => {
+    const t = tables[Number(select.value)];
+    renderRawPreview(t.headers, t.rows.slice(0, 5), "table-choice-preview");
+  };
+  select.onchange = renderChoicePreview;
+  renderChoicePreview();
+
+  document.getElementById("table-choice-confirm").onclick = () => {
+    proceedWithTable(tables[Number(select.value)]);
+  };
+
+  document.getElementById("step-table-choice").style.display = "block";
+}
 
 // ---------- Passo 2: mapeamento ----------
 function renderMappingGrid(headers, guessed) {
@@ -80,8 +122,8 @@ function renderMappingGrid(headers, guessed) {
   renderSideValueMapping();
 }
 
-function renderRawPreview(headers, rows) {
-  const el = document.getElementById("raw-preview");
+function renderRawPreview(headers, rows, targetId = "raw-preview") {
+  const el = document.getElementById(targetId);
   el.innerHTML = `
     <table>
       <thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>

@@ -63,26 +63,32 @@ export function parseCSV(text) {
   return { headers, rows: dataRows, delimiter };
 }
 
-// Lê a maior <table> de um HTML exportado (ex: extrato de operações salvo
-// como página web) e devolve no mesmo formato de parseCSV.
-export function parseHTMLTable(html) {
+// Lê TODAS as <table> "reais" (com mais de 1 coluna e pelo menos 1 linha de
+// dado) de um HTML exportado — relatórios de corretora/plataforma (ex: MT5)
+// costumam ter várias tabelas no mesmo arquivo (resumo de conta, ordens,
+// negócios, posições), então quem decide qual é a certa é o usuário, não um
+// palpite automático. Cada tabela vem no mesmo formato de parseCSV.
+export function parseHTMLTables(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const tables = [...doc.querySelectorAll("table")];
-  if (!tables.length) return { headers: [], rows: [] };
-
-  const table = tables.reduce((biggest, t) => {
-    const rows = t.querySelectorAll("tr").length;
-    return rows > (biggest?.querySelectorAll("tr").length || 0) ? t : biggest;
-  }, tables[0]);
-
   const cellText = (cell) => cell.textContent.trim().replace(/\s+/g, " ");
-  const allRows = [...table.querySelectorAll("tr")]
-    .map((tr) => [...tr.querySelectorAll("th,td")].map(cellText))
-    .filter((r) => r.some((c) => c !== ""));
 
-  const headers = allRows[0] || [];
-  const dataRows = allRows.slice(1);
-  return { headers, rows: dataRows };
+  return [...doc.querySelectorAll("table")]
+    .map((table) => {
+      // ignora linhas/células que pertencem a uma tabela aninhada dentro desta
+      const trs = [...table.querySelectorAll("tr")].filter((tr) => tr.closest("table") === table);
+      const allRows = trs
+        .map((tr) =>
+          [...tr.querySelectorAll("th,td")]
+            .filter((c) => c.closest("table") === table)
+            .map(cellText)
+        )
+        .filter((r) => r.some((c) => c !== ""));
+
+      const headers = allRows[0] || [];
+      const rows = allRows.slice(1);
+      return { headers, rows };
+    })
+    .filter((t) => t.headers.length > 1 && t.rows.length > 0);
 }
 
 // Aceita "1.234,56" (BR), "1,234.56" (US), "1234.56", "R$ 1.234,56" etc.
@@ -162,7 +168,7 @@ export const FIELD_DEFINITIONS = [
   { key: "side", label: "Lado (compra/venda)", required: true, aliases: ["lado", "operação", "operacao", "tipo", "side", "compra/venda", "c/v", "buy/sell"] },
   { key: "quantity", label: "Quantidade", required: true, aliases: ["quantidade", "qtd", "qtde", "quantity", "qty", "volume"] },
   { key: "entry_price", label: "Preço de entrada", required: true, aliases: ["preço médio", "preco medio", "preço entrada", "preco entrada", "preço", "preco", "price", "entry price", "preço unitário", "preco unitario", "pu"] },
-  { key: "entry_at", label: "Data/hora de entrada", required: true, aliases: ["data", "data entrada", "data abertura", "data negociação", "data negociacao", "date", "entry date", "data/hora", "abertura"] },
+  { key: "entry_at", label: "Data/hora de entrada", required: true, aliases: ["data", "data entrada", "data abertura", "data negociação", "data negociacao", "date", "entry date", "data/hora", "abertura", "time", "hora"] },
   { key: "exit_price", label: "Preço de saída (opcional)", required: false, aliases: ["preço saída", "preco saida", "exit price", "preço de saída"] },
   { key: "exit_at", label: "Data/hora de saída (opcional)", required: false, aliases: ["data saída", "data saida", "data fechamento", "exit date", "fechamento"] },
   { key: "stop_loss", label: "Stop loss (opcional)", required: false, aliases: ["stop loss", "stop", "sl"] },

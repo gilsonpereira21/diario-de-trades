@@ -23,9 +23,23 @@
 
   <main class="container">
     <h1 class="page-title">Visão geral</h1>
-    <p class="page-subtitle">Suas métricas de performance e comportamento em um só lugar.</p>
+    <p class="page-subtitle">Disciplina primeiro, performance depois.</p>
+
+    <div class="card" id="discipline-card"></div>
 
     <div id="pattern-alerts"></div>
+
+    <div class="card" style="margin-bottom: 14px">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px">
+        <h2 style="margin: 0">Performance</h2>
+        <div class="tabbar" id="period-selector" style="width: auto">
+          <button type="button" data-period="today">Hoje</button>
+          <button type="button" data-period="7d">7 dias</button>
+          <button type="button" data-period="30d">30 dias</button>
+          <button type="button" data-period="all" class="active">Tudo</button>
+        </div>
+      </div>
+    </div>
 
     <div class="stat-grid" id="stat-grid"></div>
 

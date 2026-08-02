@@ -1,9 +1,10 @@
 # Diário de Trades com Psicologia
 
-MVP de um diário de trades que, além das métricas de performance padrão
-(win rate, risco/retorno, expectância, drawdown), registra o **estado
-emocional antes/depois de cada operação** e alerta padrões destrutivos
-(ex: revenge trading após perdas seguidas).
+MVP de um diário de trades focado em **disciplina comportamental antes de
+performance financeira**. O número central do app é o **score de disciplina**
+(0-100) e o **streak de dias disciplinados** — não o P&L. Além disso, registra
+o **estado emocional antes/depois de cada operação** e alerta padrões
+destrutivos (ex: revenge trading após perdas seguidas).
 
 Site estático — HTML/CSS/JS puro, sem build step (Node não é necessário para
 rodar o site). Backend é o Supabase (Postgres + Auth), com uma única function
@@ -27,8 +28,10 @@ parte que precisa de uma chave secreta protegida no servidor.
 
 1. Crie uma conta em [supabase.com](https://supabase.com) e um novo projeto.
 2. No **SQL Editor**, rode o conteúdo de [`supabase/schema.sql`](supabase/schema.sql).
-   Isso cria a tabela `trades` com Row Level Security (cada usuário só vê os
-   próprios trades).
+   Isso cria as tabelas `trades` e `user_settings`, ambas com Row Level
+   Security (cada usuário só vê os próprios dados). Se você já tinha rodado
+   uma versão anterior desse arquivo, pode rodar de novo sem problema — os
+   comandos são idempotentes (`if not exists`).
 3. Em **Settings → API**, copie a **Project URL** e a chave **anon public**.
 
 ### 2. Configurar o app
@@ -89,10 +92,21 @@ continua acessível mas a análise retorna erro.
 - Cadastro/login por e-mail e senha, e login com Google (Supabase Auth)
 - Registro manual de trades: ativo, lado, quantidade, preços de entrada/saída,
   stop loss, take profit, datas, notas
-- Campo de **estado emocional antes e depois** de cada trade (confiante,
-  ansioso, ganancioso, vingativo, medo, eufórico, cansado, neutro)
-- Métricas automáticas: win rate, risco/retorno médio (R), expectância,
-  resultado total, drawdown máximo
+- Campo de **estado emocional antes** de cada trade é **obrigatório** (o de
+  depois é opcional) — confiante, ansioso, ganancioso, vingativo, medo,
+  eufórico, cansado, neutro. (Trades vindos de CSV/HTML/IA/OCR continuam
+  entrando sem emoção — o campo é obrigatório só no cadastro manual em tempo real.)
+- **Score de disciplina (0-100) e streak** ([js/discipline.js](js/discipline.js)):
+  calculado a partir de 3 regras fixas, cada uma opcional de configurar em
+  **Configure suas regras de disciplina** no topo do Dashboard —
+  1) respeitou o stop loss definido, 2) não excedeu um tamanho máximo de
+  posição, 3) operou dentro de uma janela de horário. Uma regra sem dado
+  configurado simplesmente não entra na conta (não penaliza nem favorece).
+  O streak conta dias consecutivos **com trade** e score acima do limiar
+  definido (padrão 80%) — um dia sem nenhuma operação não quebra o streak,
+  só não soma.
+- Métricas automáticas por período (hoje / 7 dias / 30 dias / tudo): win
+  rate, risco/retorno médio (R), expectância, resultado total, drawdown máximo
 - Detecção de padrões comportamentais:
   - queda de performance depois de 2 perdas seguidas (revenge trading)
   - queda de performance associada a um estado emocional específico
@@ -125,9 +139,15 @@ continua acessível mas a análise retorna erro.
 
 ## Fora do escopo deste MVP (próximas fatias)
 
+- Check-in matinal (sono, humor, notícias do dia)
+- Resumo automático de fechamento do dia
+- Alerta de "você já operou X vezes hoje, historicamente sua performance cai"
+- Tela dedicada de configuração de regras (hoje é só um formulário simples
+  embutido no Dashboard, sem liga/desliga por regra)
 - Alertas em tempo real ("você está prestes a repetir seu padrão")
 - Planos pagos / cobrança (Free vs Pro) — hoje o app não tem nenhum limite
   ou paywall implementado
+- "Modo trava" (bloqueio de horários de pior desempenho)
 - Empacotamento como app mobile (PWA/Capacitor)
 
 ## Estrutura de arquivos
@@ -146,6 +166,8 @@ js/metrics.js                    Cálculo de win rate, R:R, expectância, drawdo
 js/patterns.js                     Detecção de padrões comportamentais
 js/charts.js                         Gráficos SVG (linha e barras)
 js/emotions.js                         Lista de estados emocionais
+js/discipline.js                          Score de disciplina (3 regras) + streak
+js/settings.js                               Regras de disciplina do usuário (get/save)
 js/csv.js                                 Parser de CSV/HTML + normalização de números/datas/lado
 js/ocr.js                                    Leitura de texto local (Tesseract.js) + parser heurístico
 js/nav.js                                    Menu mobile (hambúrguer)

@@ -32,3 +32,23 @@ create policy "Users manage their own trades"
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Regras de disciplina configuráveis por usuário (tamanho máx. de posição,
+-- janela de horário permitido, limiar do score que conta pro streak).
+create table if not exists public.user_settings (
+  user_id             uuid primary key references auth.users(id) on delete cascade,
+  max_position_size   numeric,
+  trading_start_time  time,
+  trading_end_time    time,
+  discipline_threshold integer not null default 80 check (discipline_threshold between 0 and 100),
+  updated_at          timestamptz not null default now()
+);
+
+alter table public.user_settings enable row level security;
+
+drop policy if exists "Users manage their own settings" on public.user_settings;
+create policy "Users manage their own settings"
+  on public.user_settings
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

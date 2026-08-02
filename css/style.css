@@ -323,6 +323,40 @@ a {
   color: var(--critical);
 }
 
+/* ---------- Disciplina (score/streak em destaque) ---------- */
+.discipline-grid {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-figure {
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: proportional-nums;
+}
+
+.hero-figure.good {
+  color: var(--good);
+}
+
+.hero-figure.warning {
+  color: var(--warning);
+}
+
+.hero-figure.critical {
+  color: var(--critical);
+}
+
+@media (max-width: 640px) {
+  .hero-figure {
+    font-size: 36px;
+  }
+}
+
 /* ---------- Cards / panels ---------- */
 .card {
   background: var(--surface-1);

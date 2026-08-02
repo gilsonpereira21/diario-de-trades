@@ -179,9 +179,18 @@ function renderReview(results) {
   stepReview.scrollIntoView({ behavior: "smooth" });
 }
 
+const MAX_FILE_BYTES = 4 * 1024 * 1024; // ~4MB originais (vira ~5.4MB em base64)
+
 analyzeBtn.addEventListener("click", async () => {
   if (!currentFile) return;
   errorText.style.display = "none";
+
+  if (currentFile.size > MAX_FILE_BYTES) {
+    errorText.textContent = `Arquivo grande demais (${(currentFile.size / (1024 * 1024)).toFixed(1)}MB, limite ~4MB). Tente um arquivo menor ou com menos páginas/qualidade mais baixa.`;
+    errorText.style.display = "block";
+    return;
+  }
+
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = "Analisando...";
 
@@ -199,7 +208,19 @@ analyzeBtn.addEventListener("click", async () => {
       body: JSON.stringify({ imageBase64, mimeType: currentFile.type }),
     });
 
-    const result = await res.json();
+    const rawText = await res.text();
+    let result;
+    try {
+      result = JSON.parse(rawText);
+    } catch {
+      throw new Error(
+        `Resposta inesperada do servidor (status ${res.status}). ${
+          res.status === 413
+            ? "O arquivo provavelmente é grande demais (limite ~6MB)."
+            : `Detalhe: ${rawText.slice(0, 150)}`
+        }`
+      );
+    }
     if (!res.ok) throw new Error(result.error || "Não foi possível ler esse arquivo.");
 
     renderReview(buildTrades(result.trades || []));

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importar print (IA) — Diário de Trades</title>
+  <title>Importar print/PDF (IA) — Diário de Trades</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -16,25 +16,25 @@
       <a href="index.html">Dashboard</a>
       <a href="trades.html">Trades</a>
       <a href="import.html">Importar CSV</a>
-      <a href="screenshot.html" class="active">Importar Print (IA)</a>
+      <a href="screenshot.html" class="active">Importar Print/PDF (IA)</a>
       <button class="btn" id="logout-btn">Sair</button>
     </nav>
   </header>
 
   <main class="container">
-    <h1 class="page-title">Importar trade a partir de um print</h1>
+    <h1 class="page-title">Importar trade a partir de um print ou PDF</h1>
     <p class="page-subtitle">
-      Suba (ou cole com Ctrl+V) um print da sua corretora e a IA tenta ler os dados da
-      operação pra você. Você sempre revisa e confirma antes de salvar.
+      Suba (ou cole com Ctrl+V) um print, ou envie um PDF de nota de corretagem/confirmação
+      de operação, e a IA tenta ler os dados pra você. Você sempre revisa e confirma antes de salvar.
     </p>
 
     <div class="card">
       <label for="image-input" style="display: block; margin-bottom: 10px; font-size: 13px; font-weight: 500">
-        Escolher imagem (PNG, JPG ou WEBP, até ~6MB)
+        Escolher arquivo (PNG, JPG, WEBP ou PDF, até ~6MB)
       </label>
-      <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp" />
+      <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp,application/pdf,.pdf" />
       <p class="hint" style="margin-top: 8px">
-        Dica: também dá pra colar direto um print da área de transferência com Ctrl+V nesta página.
+        Dica: pra prints, também dá pra colar direto da área de transferência com Ctrl+V nesta página.
       </p>
 
       <div id="image-preview" style="margin-top: 16px"></div>

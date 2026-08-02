@@ -14,13 +14,26 @@ const errorText = document.getElementById("analyze-error");
 let currentFile = null;
 
 function setFile(file) {
-  if (!file || !file.type.startsWith("image/")) return;
+  if (!file) return;
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+  if (!isImage && !isPdf) return;
+
   currentFile = file;
   analyzeBtn.disabled = false;
   errorText.style.display = "none";
 
   const url = URL.createObjectURL(file);
-  preview.innerHTML = `<img src="${url}" alt="Preview do print" style="max-width: 100%; max-height: 360px; border-radius: 8px; border: 1px solid var(--border)" />`;
+  if (isImage) {
+    preview.innerHTML = `<img src="${url}" alt="Preview do print" style="max-width: 100%; max-height: 360px; border-radius: 8px; border: 1px solid var(--border)" />`;
+  } else {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    preview.innerHTML = `
+      <div class="alert" style="border: 1px solid var(--border)">
+        <span class="alert-icon">📄</span>
+        <div><strong>${file.name}</strong><br />PDF selecionado (${sizeMb} MB)</div>
+      </div>`;
+  }
 }
 
 imageInput.addEventListener("change", (e) => setFile(e.target.files[0]));
@@ -60,12 +73,12 @@ analyzeBtn.addEventListener("click", async () => {
     });
 
     const result = await res.json();
-    if (!res.ok) throw new Error(result.error || "Não foi possível ler essa imagem.");
+    if (!res.ok) throw new Error(result.error || "Não foi possível ler esse arquivo.");
 
     sessionStorage.setItem("pendingImportTrade", JSON.stringify(result.trade));
     window.location.href = "trades.html";
   } catch (err) {
-    errorText.textContent = err.message || "Erro ao analisar a imagem.";
+    errorText.textContent = err.message || "Erro ao analisar o arquivo.";
     errorText.style.display = "block";
     analyzeBtn.disabled = false;
     analyzeBtn.textContent = "Analisar com IA";

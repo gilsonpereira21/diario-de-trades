@@ -4,8 +4,8 @@
 // Fica no servidor (não no navegador) só porque a GEMINI_API_KEY é secreta —
 // diferente da chave "anon" do Supabase, essa não pode ser exposta no cliente.
 
-const MAX_BASE64_LENGTH = 8 * 1024 * 1024; // ~6MB de imagem original em base64
-const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_BASE64_LENGTH = 8 * 1024 * 1024; // ~6MB de arquivo original em base64
+const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf"]);
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -24,8 +24,10 @@ const RESPONSE_SCHEMA = {
   required: ["asset", "side", "quantity", "entry_price"],
 };
 
-const PROMPT = `Você está vendo um print de tela de uma corretora ou plataforma de trading
-(ações, cripto ou forex) mostrando uma operação.
+const PROMPT = `Você está vendo um print de tela ou um PDF (nota de corretagem, confirmação de
+operação, extrato) de uma corretora ou plataforma de trading (ações, cripto ou forex)
+mostrando uma operação. Se for um PDF com várias operações, extraia apenas a primeira
+operação encontrada.
 
 Extraia os dados dessa operação no formato JSON pedido. Regras:
 - "side": use exatamente "compra" ou "venda" (compra = long/buy, venda = short/sell).

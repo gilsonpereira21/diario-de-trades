@@ -1,6 +1,7 @@
 import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
 import { parseFlexibleDate, normalizeSide } from "./csv.js";
+import { recognizeText, parseTradesFromText } from "./ocr.js";
 import { initMobileNav } from "./nav.js";
 
 const banner = document.getElementById("config-banner");
@@ -10,6 +11,7 @@ initMobileNav();
 const imageInput = document.getElementById("image-input");
 const preview = document.getElementById("image-preview");
 const analyzeBtn = document.getElementById("analyze-btn");
+const ocrBtn = document.getElementById("ocr-btn");
 const errorText = document.getElementById("analyze-error");
 const stepReview = document.getElementById("step-review");
 
@@ -31,8 +33,10 @@ function setFile(file) {
 
   currentFile = file;
   analyzeBtn.disabled = false;
+  ocrBtn.disabled = !isImage;
   errorText.style.display = "none";
   stepReview.style.display = "none";
+  document.getElementById("ocr-raw-text-wrap").style.display = "none";
 
   const url = URL.createObjectURL(file);
   if (isImage) {
@@ -59,7 +63,9 @@ document.getElementById("back-btn").addEventListener("click", () => {
   preview.innerHTML = "";
   currentFile = null;
   analyzeBtn.disabled = true;
+  ocrBtn.disabled = true;
   imageInput.value = "";
+  document.getElementById("ocr-raw-text-wrap").style.display = "none";
 });
 
 function fileToBase64(file) {
@@ -136,7 +142,7 @@ function renderReview(results) {
   document.getElementById("review-summary").innerHTML = valid.length
     ? `<p><strong>${valid.length}</strong> de ${results.length} operação(ões) encontrada(s) prontas para importar.
        ${invalid.length ? `<span style="color: var(--critical)">${invalid.length} com erro (serão ignoradas).</span>` : ""}
-       A IA não sabe seu estado emocional — edite cada trade depois em "Trades" pra preencher.</p>`
+       Nenhum estado emocional é preenchido automaticamente — edite cada trade depois em "Trades" pra completar.</p>`
     : `<p style="color: var(--critical)">Nenhuma operação reconhecida com segurança nesse arquivo. Tente um arquivo mais nítido, ou registre manualmente em "Trades".</p>`;
 
   document.getElementById("review-table").innerHTML = results.length
@@ -230,6 +236,39 @@ analyzeBtn.addEventListener("click", async () => {
   } finally {
     analyzeBtn.disabled = false;
     analyzeBtn.textContent = "Analisar com IA";
+  }
+});
+
+ocrBtn.addEventListener("click", async () => {
+  if (!currentFile) return;
+  errorText.style.display = "none";
+  ocrBtn.disabled = true;
+  const originalLabel = ocrBtn.textContent;
+
+  try {
+    const text = await recognizeText(currentFile, (pct) => {
+      ocrBtn.textContent = `Lendo imagem... ${pct}%`;
+    });
+
+    const rawTextWrap = document.getElementById("ocr-raw-text-wrap");
+    document.getElementById("ocr-raw-text").textContent = text || "(nenhum texto reconhecido)";
+    rawTextWrap.style.display = "block";
+
+    const candidates = parseTradesFromText(text);
+    if (!candidates.length) {
+      errorText.textContent =
+        "O OCR não conseguiu reconhecer nenhuma operação com o padrão esperado (ativo + lado + números na mesma linha). Veja o texto bruto abaixo, ou tente a leitura com IA.";
+      errorText.style.display = "block";
+      return;
+    }
+
+    renderReview(buildTrades(candidates));
+  } catch (err) {
+    errorText.textContent = err.message || "Erro ao ler o texto da imagem.";
+    errorText.style.display = "block";
+  } finally {
+    ocrBtn.disabled = false;
+    ocrBtn.textContent = originalLabel;
   }
 });
 

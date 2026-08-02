@@ -40,9 +40,18 @@
       <div id="image-preview" style="margin-top: 16px"></div>
 
       <div class="form-actions">
+        <button type="button" class="btn" id="ocr-btn" disabled>Analisar sem IA (OCR local)</button>
         <button type="button" class="btn btn-primary" id="analyze-btn" disabled>Analisar com IA</button>
       </div>
+      <p class="hint">
+        "Sem IA" lê o texto da imagem direto no navegador — grátis, sem limite de uso, mas só
+        entende texto simples (não funciona com PDF). É menos preciso: revise tudo com atenção.
+      </p>
       <p class="error-text" id="analyze-error" style="display: none"></p>
+      <details id="ocr-raw-text-wrap" style="display: none; margin-top: 10px">
+        <summary style="cursor: pointer; font-size: 12px; color: var(--text-secondary)">Ver texto bruto lido pelo OCR</summary>
+        <pre id="ocr-raw-text" style="white-space: pre-wrap; font-size: 12px; background: var(--page); padding: 10px; border-radius: 8px; margin-top: 8px"></pre>
+      </details>
     </div>
 
     <div class="card" id="step-review" style="display: none">

@@ -114,6 +114,14 @@ continua acessível mas a análise retorna erro.
   imagem com várias linhas, ou um PDF com várias páginas) — não só a primeira.
   Cai numa tabela de revisão igual à do importador de CSV, com checkbox por
   linha; nada é salvo sem confirmação manual, já que a IA pode errar leituras.
+  Sujeito ao limite de uso grátis da API do Gemini e a um timeout de 60s da
+  Netlify Function para arquivos muito grandes/com muitas páginas.
+- **Leitura de print sem IA (OCR local)**: mesma tela, botão "Analisar sem IA
+  (OCR local)" — roda [Tesseract.js](https://github.com/naptha/tesseract.js)
+  inteiramente no navegador (grátis, sem limite de uso, sem servidor). Só
+  funciona com imagens (não PDF) e é bem menos preciso — usa um heurística
+  simples (procura ativo + lado + números na mesma linha de texto), então
+  serve como rascunho pra revisar, não como leitura confiável.
 
 ## Fora do escopo deste MVP (próximas fatias)
 
@@ -138,7 +146,8 @@ js/metrics.js                    Cálculo de win rate, R:R, expectância, drawdo
 js/patterns.js                     Detecção de padrões comportamentais
 js/charts.js                         Gráficos SVG (linha e barras)
 js/emotions.js                         Lista de estados emocionais
-js/csv.js                                 Parser de CSV + normalização de números/datas/lado
+js/csv.js                                 Parser de CSV/HTML + normalização de números/datas/lado
+js/ocr.js                                    Leitura de texto local (Tesseract.js) + parser heurístico
 js/nav.js                                    Menu mobile (hambúrguer)
 js/dashboard.js                                Lógica da página de dashboard
 js/trades-page.js                                Lógica da página de trades

@@ -9,6 +9,7 @@ import {
   guessMapping,
   FIELD_DEFINITIONS,
 } from "./csv.js";
+import { recognizeText, parseTradesFromText } from "./ocr.js";
 import { initMobileNav } from "./nav.js";
 
 const banner = document.getElementById("config-banner");
@@ -17,6 +18,7 @@ initMobileNav();
 
 let userId = null;
 let csvData = { headers: [], rows: [] };
+let currentFile = null;
 let lastResults = [];
 
 function escapeHtml(s) {
@@ -25,16 +27,29 @@ function escapeHtml(s) {
   }[c]));
 }
 
+const STEP_IDS = ["step-table-choice", "step-mapping", "step-analyze", "step-review"];
+function resetSteps() {
+  STEP_IDS.forEach((id) => (document.getElementById(id).style.display = "none"));
+  document.getElementById("upload-error").style.display = "none";
+  document.getElementById("analyze-error").style.display = "none";
+  document.getElementById("ocr-raw-text-wrap").style.display = "none";
+}
+
 // ---------- Passo 1: upload ----------
 document.getElementById("file-input").addEventListener("change", async (e) => {
   const file = e.target.files[0];
-  const uploadError = document.getElementById("upload-error");
-  uploadError.style.display = "none";
-  document.getElementById("step-table-choice").style.display = "none";
-  document.getElementById("step-mapping").style.display = "none";
-  document.getElementById("step-review").style.display = "none";
+  resetSteps();
   if (!file) return;
 
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+
+  if (isImage || isPdf) {
+    showAnalyzeStep(file, isImage);
+    return;
+  }
+
+  const uploadError = document.getElementById("upload-error");
   try {
     const text = await file.text();
     const looksLikeHtml =
@@ -44,9 +59,7 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
 
     if (looksLikeHtml) {
       const tables = parseHTMLTables(text);
-      if (!tables.length) {
-        throw new Error("Não encontrei nenhuma tabela legível nesse HTML.");
-      }
+      if (!tables.length) throw new Error("Não encontrei nenhuma tabela legível nesse HTML.");
       if (tables.length === 1) proceedWithTable(tables[0]);
       else showTableChoice(tables);
     } else {
@@ -62,13 +75,20 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
   }
 });
 
+document.addEventListener("paste", (e) => {
+  const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+  if (item) {
+    resetSteps();
+    showAnalyzeStep(item.getAsFile(), true);
+  }
+});
+
+// ---------- Caminho planilha (CSV/HTML) ----------
 function proceedWithTable(table) {
   csvData = table;
   renderMappingGrid(csvData.headers, guessMapping(csvData.headers));
   renderRawPreview(csvData.headers, csvData.rows.slice(0, 5));
-  document.getElementById("step-table-choice").style.display = "none";
   document.getElementById("step-mapping").style.display = "block";
-  document.getElementById("step-review").style.display = "none";
 }
 
 function showTableChoice(tables) {
@@ -93,13 +113,13 @@ function showTableChoice(tables) {
   renderChoicePreview();
 
   document.getElementById("table-choice-confirm").onclick = () => {
+    document.getElementById("step-table-choice").style.display = "none";
     proceedWithTable(tables[Number(select.value)]);
   };
 
   document.getElementById("step-table-choice").style.display = "block";
 }
 
-// ---------- Passo 2: mapeamento ----------
 function renderMappingGrid(headers, guessed) {
   const grid = document.getElementById("mapping-grid");
   grid.innerHTML = FIELD_DEFINITIONS.map(
@@ -184,8 +204,7 @@ function getSideValueMap() {
   return map;
 }
 
-// ---------- Passo 3: analisar / revisar ----------
-function buildTrades(mapping, sideValueMap) {
+function buildTradesFromMapping(mapping, sideValueMap) {
   const colIndex = (key) => (mapping[key] ? csvData.headers.indexOf(mapping[key]) : -1);
   const cols = Object.fromEntries(FIELD_DEFINITIONS.map((d) => [d.key, colIndex(d.key)]));
   const get = (row, key) => (cols[key] === -1 ? "" : (row[cols[key]] ?? "").trim());
@@ -217,9 +236,7 @@ function buildTrades(mapping, sideValueMap) {
       warning = "importado como trade aberto (faltou data de saída)";
       exit_price = null;
     }
-    if (exit_at && exit_price == null) {
-      exit_at = null;
-    }
+    if (exit_at && exit_price == null) exit_at = null;
 
     const stop_loss = cols.stop_loss !== -1 ? parseLocaleNumber(get(row, "stop_loss")) : null;
     const take_profit = cols.take_profit !== -1 ? parseLocaleNumber(get(row, "take_profit")) : null;
@@ -247,19 +264,209 @@ function buildTrades(mapping, sideValueMap) {
   });
 }
 
+document.getElementById("mapping-analyze-btn").addEventListener("click", () => {
+  const mapping = getMappingFromGrid();
+  const missing = FIELD_DEFINITIONS.filter((d) => d.required && !mapping[d.key]);
+  if (missing.length) {
+    alert(`Selecione as colunas obrigatórias: ${missing.map((d) => d.label).join(", ")}`);
+    return;
+  }
+  renderReview(buildTradesFromMapping(mapping, getSideValueMap()));
+});
+
+// ---------- Caminho print/PDF (IA ou OCR) ----------
+function showAnalyzeStep(file, isImage) {
+  currentFile = file;
+  const preview = document.getElementById("analyze-preview");
+  const url = URL.createObjectURL(file);
+
+  if (isImage) {
+    preview.innerHTML = `<img src="${url}" alt="Preview do print" style="max-width: 100%; max-height: 360px; border-radius: 8px; border: 1px solid var(--border)" />`;
+  } else {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    preview.innerHTML = `
+      <div class="alert" style="border: 1px solid var(--border)">
+        <span class="alert-icon">📄</span>
+        <div><strong>${escapeHtml(file.name)}</strong><br />PDF selecionado (${sizeMb} MB)</div>
+      </div>`;
+  }
+
+  document.getElementById("ocr-fallback-link").style.display = isImage ? "inline" : "none";
+  document.getElementById("step-analyze").style.display = "block";
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function buildTradesFromExtracted(rawTrades) {
+  return rawTrades.map((raw, i) => {
+    const errors = [];
+    let warning = null;
+
+    const asset = (raw.asset || "").toString().trim().toUpperCase();
+    if (!asset) errors.push("ativo vazio");
+
+    const side = raw.side === "compra" || raw.side === "venda" ? raw.side : normalizeSide(raw.side);
+    if (!side) errors.push("lado não reconhecido");
+
+    const quantity = Number(raw.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) errors.push("quantidade inválida");
+
+    const entry_price = Number(raw.entry_price);
+    if (!Number.isFinite(entry_price) || entry_price <= 0) errors.push("preço de entrada inválido");
+
+    const entry_at = raw.entry_at ? parseFlexibleDate(raw.entry_at) : null;
+    if (!entry_at) errors.push("data de entrada inválida");
+
+    let exit_price = raw.exit_price != null ? Number(raw.exit_price) : null;
+    if (exit_price != null && !Number.isFinite(exit_price)) exit_price = null;
+    let exit_at = raw.exit_at ? parseFlexibleDate(raw.exit_at) : null;
+
+    if (exit_price != null && !exit_at) {
+      warning = "importado como trade aberto (faltou data de saída)";
+      exit_price = null;
+    }
+    if (exit_at && exit_price == null) exit_at = null;
+
+    const stop_loss = raw.stop_loss != null && Number.isFinite(Number(raw.stop_loss)) ? Number(raw.stop_loss) : null;
+    const take_profit = raw.take_profit != null && Number.isFinite(Number(raw.take_profit)) ? Number(raw.take_profit) : null;
+    const notes = raw.notes ? String(raw.notes) : null;
+
+    const trade =
+      errors.length === 0
+        ? {
+            asset,
+            side,
+            quantity,
+            entry_price,
+            entry_at: entry_at.toISOString(),
+            exit_price,
+            exit_at: exit_at ? exit_at.toISOString() : null,
+            stop_loss,
+            take_profit,
+            emotion_before: null,
+            emotion_after: null,
+            notes,
+          }
+        : null;
+
+    return { rowNumber: i + 1, trade, errors, warning };
+  });
+}
+
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+document.getElementById("ai-analyze-btn").addEventListener("click", async () => {
+  if (!currentFile) return;
+  const errorText = document.getElementById("analyze-error");
+  const analyzeBtn = document.getElementById("ai-analyze-btn");
+  errorText.style.display = "none";
+
+  if (currentFile.size > MAX_FILE_BYTES) {
+    errorText.textContent = `Arquivo grande demais (${(currentFile.size / (1024 * 1024)).toFixed(1)}MB, limite ~4MB). Tente um arquivo menor ou com menos páginas/qualidade mais baixa.`;
+    errorText.style.display = "block";
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = "Analisando...";
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) throw new Error("Sessão expirada, faça login novamente.");
+
+    const imageBase64 = await fileToBase64(currentFile);
+    const res = await fetch("/.netlify/functions/parse-trade-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({ imageBase64, mimeType: currentFile.type }),
+    });
+
+    const rawText = await res.text();
+    let result;
+    try {
+      result = JSON.parse(rawText);
+    } catch {
+      throw new Error(
+        `Resposta inesperada do servidor (status ${res.status}). ${
+          res.status === 413
+            ? "O arquivo provavelmente é grande demais (limite ~6MB)."
+            : `Detalhe: ${rawText.slice(0, 150)}`
+        }`
+      );
+    }
+    if (!res.ok) throw new Error(result.error || "Não foi possível ler esse arquivo.");
+
+    renderReview(buildTradesFromExtracted(result.trades || []));
+  } catch (err) {
+    errorText.textContent = err.message || "Erro ao analisar o arquivo.";
+    errorText.style.display = "block";
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = "Analisar com IA";
+  }
+});
+
+document.getElementById("ocr-fallback-link").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if (!currentFile) return;
+  const errorText = document.getElementById("analyze-error");
+  const link = document.getElementById("ocr-fallback-link");
+  errorText.style.display = "none";
+  const originalLabel = link.textContent;
+
+  try {
+    const text = await recognizeText(currentFile, (pct) => {
+      link.textContent = `Lendo imagem... ${pct}%`;
+    });
+
+    const rawTextWrap = document.getElementById("ocr-raw-text-wrap");
+    document.getElementById("ocr-raw-text").textContent = text || "(nenhum texto reconhecido)";
+    rawTextWrap.style.display = "block";
+
+    const candidates = parseTradesFromText(text);
+    if (!candidates.length) {
+      errorText.textContent =
+        "O OCR não conseguiu reconhecer nenhuma operação com o padrão esperado (ativo + lado + números na mesma linha). Veja o texto bruto abaixo, ou tente a leitura com IA.";
+      errorText.style.display = "block";
+      return;
+    }
+
+    renderReview(buildTradesFromExtracted(candidates));
+  } catch (err) {
+    errorText.textContent = err.message || "Erro ao ler o texto da imagem.";
+    errorText.style.display = "block";
+  } finally {
+    link.textContent = originalLabel;
+  }
+});
+
+// ---------- Revisão + importação (compartilhado pelos dois caminhos) ----------
 function renderReview(results) {
   lastResults = results;
   const valid = results.filter((r) => r.trade);
   const invalid = results.filter((r) => !r.trade);
 
-  document.getElementById("review-summary").innerHTML = `
-    <p><strong>${valid.length}</strong> de ${results.length} linha(s) prontas para importar.
-    ${invalid.length ? `<span style="color: var(--critical)">${invalid.length} com erro (serão ignoradas).</span>` : ""}</p>`;
+  document.getElementById("review-summary").innerHTML = valid.length
+    ? `<p><strong>${valid.length}</strong> de ${results.length} operação(ões) prontas para importar.
+       ${invalid.length ? `<span style="color: var(--critical)">${invalid.length} com erro (serão ignoradas).</span>` : ""}
+       Nenhum estado emocional é preenchido automaticamente — edite cada trade depois em "Trades" pra completar.</p>`
+    : `<p style="color: var(--critical)">Nenhuma operação reconhecida com segurança. Corrija o mapeamento acima, tente outro arquivo, ou registre manualmente em "Trades".</p>`;
 
-  document.getElementById("review-table").innerHTML = `
+  document.getElementById("review-table").innerHTML = results.length
+    ? `
     <table>
       <thead>
-        <tr><th></th><th>Linha</th><th>Ativo</th><th>Lado</th><th>Qtd</th><th>Entrada</th><th>Status</th></tr>
+        <tr><th></th><th>#</th><th>Ativo</th><th>Lado</th><th>Qtd</th><th>Entrada</th><th>Status</th></tr>
       </thead>
       <tbody>
         ${results
@@ -286,38 +493,29 @@ function renderReview(results) {
           })
           .join("")}
       </tbody>
-    </table>`;
+    </table>`
+    : "";
 
   document.getElementById("import-result").innerHTML = "";
   document.getElementById("import-error").style.display = "none";
-}
-
-document.getElementById("analyze-btn").addEventListener("click", () => {
-  const mapping = getMappingFromGrid();
-  const missing = FIELD_DEFINITIONS.filter((d) => d.required && !mapping[d.key]);
-  if (missing.length) {
-    alert(`Selecione as colunas obrigatórias: ${missing.map((d) => d.label).join(", ")}`);
-    return;
-  }
-  const results = buildTrades(mapping, getSideValueMap());
-  renderReview(results);
   document.getElementById("step-review").style.display = "block";
   document.getElementById("step-review").scrollIntoView({ behavior: "smooth" });
-});
+}
 
 document.getElementById("back-btn").addEventListener("click", () => {
-  document.getElementById("step-review").style.display = "none";
-  document.getElementById("step-mapping").scrollIntoView({ behavior: "smooth" });
+  resetSteps();
+  document.getElementById("file-input").value = "";
+  currentFile = null;
+  csvData = { headers: [], rows: [] };
 });
 
-// ---------- Passo 4: importar ----------
 document.getElementById("import-btn").addEventListener("click", async () => {
   const importBtn = document.getElementById("import-btn");
   const importError = document.getElementById("import-error");
   importError.style.display = "none";
 
   const checked = new Set(
-    [...document.querySelectorAll('[data-row]:checked')].map((el) => Number(el.dataset.row))
+    [...document.querySelectorAll("[data-row]:checked")].map((el) => Number(el.dataset.row))
   );
   const toImport = lastResults.filter((r) => r.trade && checked.has(r.rowNumber));
 

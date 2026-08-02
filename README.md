@@ -84,8 +84,9 @@ registrar trades.
    [`netlify/functions/parse-trade-image.js`](netlify/functions/parse-trade-image.js)
    pegar as variáveis novas.
 
-Sem essas variáveis configuradas, a página [screenshot.html](screenshot.html)
-continua acessível mas a análise retorna erro.
+Sem essas variáveis configuradas, a opção "Analisar com IA" em
+[import.html](import.html) continua acessível mas retorna erro — a
+importação de CSV/HTML e o OCR local não dependem disso.
 
 ## O que já está no MVP
 
@@ -114,28 +115,27 @@ continua acessível mas a análise retorna erro.
 - Gráficos: curva de patrimônio acumulado, desempenho por ativo, desempenho
   por dia da semana
 - Edição e exclusão de trades
-- **Importação de CSV ou HTML** ([import.html](import.html)): sobe o extrato
-  exportado da corretora (CSV, ou uma página HTML com uma tabela — ex: extrato
-  salvo do navegador), mapeia as colunas (com sugestão automática de qual
-  coluna é qual campo), confirma o significado de cada valor de "lado"
-  (compra/venda) e importa tudo de uma vez. Aceita separador vírgula ou ponto
-  e vírgula, números em formato BR (1.234,56) ou internacional (1,234.56), e
-  datas em dd/mm/aaaa ou aaaa-mm-dd. Linhas com erro (data inválida, preço
-  vazio etc.) são sinalizadas e ignoradas sem travar o restante da importação.
-- **Leitura de print/PDF via IA** ([screenshot.html](screenshot.html)): sobe
-  (ou cola com Ctrl+V) um print, ou um PDF de nota de corretagem/confirmação,
-  e o Gemini extrai **todas** as operações que encontrar no arquivo (uma
-  imagem com várias linhas, ou um PDF com várias páginas) — não só a primeira.
-  Cai numa tabela de revisão igual à do importador de CSV, com checkbox por
-  linha; nada é salvo sem confirmação manual, já que a IA pode errar leituras.
-  Sujeito ao limite de uso grátis da API do Gemini e a um timeout de 60s da
-  Netlify Function para arquivos muito grandes/com muitas páginas.
-- **Leitura de print sem IA (OCR local)**: mesma tela, botão "Analisar sem IA
-  (OCR local)" — roda [Tesseract.js](https://github.com/naptha/tesseract.js)
-  inteiramente no navegador (grátis, sem limite de uso, sem servidor). Só
-  funciona com imagens (não PDF) e é bem menos preciso — usa um heurística
-  simples (procura ativo + lado + números na mesma linha de texto), então
-  serve como rascunho pra revisar, não como leitura confiável.
+- **Importação unificada** ([import.html](import.html)): uma única tela,
+  um único campo de arquivo — o app detecta sozinho o que você subiu e segue
+  o caminho certo:
+  - **CSV ou HTML** (extrato da corretora, relatório salvo do navegador):
+    mapeia as colunas (com sugestão automática, e escolha manual de qual
+    tabela usar quando o arquivo tem mais de uma — comum em relatórios do
+    MT5), confirma o significado de cada valor de "lado" (compra/venda) e
+    importa tudo de uma vez. Aceita separador vírgula ou ponto e vírgula,
+    números em formato BR (1.234,56) ou internacional (1,234.56), datas em
+    dd/mm/aaaa ou aaaa-mm-dd. Sem limite de tamanho, sem custo.
+  - **Print ou PDF via IA**: o Gemini extrai **todas** as operações que
+    encontrar no arquivo. Sujeito ao limite de uso grátis da API e a um
+    timeout de 60s da Netlify Function para arquivos muito grandes/com
+    muitas páginas — até ~4MB.
+  - **Print sem IA (OCR local)**: link alternativo na mesma tela — roda
+    [Tesseract.js](https://github.com/naptha/tesseract.js) inteiramente no
+    navegador (grátis, sem limite de uso, sem servidor). Só imagens (não
+    PDF), bem menos preciso — serve como rascunho, mostra o texto bruto
+    lido pra você conferir.
+  - Todos os três caminhos caem na mesma tela de revisão (checkbox por
+    linha); nada é salvo sem confirmação manual.
 
 ## Fora do escopo deste MVP (próximas fatias)
 
@@ -156,8 +156,7 @@ continua acessível mas a análise retorna erro.
 index.html          Dashboard (métricas, gráficos, alertas de padrão)
 login.html           Login / criação de conta (e-mail/senha + Google)
 trades.html           Registro e lista de trades
-import.html            Importação de CSV
-screenshot.html          Importação de print via IA
+import.html            Importação unificada (CSV/HTML/print/PDF, IA ou OCR)
 css/style.css              Estilos (design tokens claro/escuro)
 js/config.js                Credenciais do Supabase (preencher)
 js/supabaseClient.js          Cliente Supabase
@@ -173,8 +172,7 @@ js/ocr.js                                    Leitura de texto local (Tesseract.j
 js/nav.js                                    Menu mobile (hambúrguer)
 js/dashboard.js                                Lógica da página de dashboard
 js/trades-page.js                                Lógica da página de trades
-js/import-page.js                                  Lógica da página de importação de CSV
-js/screenshot-page.js                                Lógica da página de importação por IA
+js/import-page.js                                  Lógica da importação unificada (CSV/HTML/IA/OCR)
 supabase/schema.sql                                    Schema do banco (rodar no Supabase)
 netlify.toml                                             Config do Netlify (aponta pro dir. de functions)
 netlify/functions/parse-trade-image.js                     Function que chama o Gemini com segurança

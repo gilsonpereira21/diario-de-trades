@@ -1,26 +1,24 @@
 import { supabase, isConfigured } from "./supabaseClient.js";
 import { requireSession, signOut } from "./auth.js";
 import { initMobileNav } from "./nav.js";
-import {
-  computeMetrics,
-  performanceByAsset,
-  performanceByWeekday,
-  pnl,
-} from "./metrics.js";
-import { detectPatterns } from "./patterns.js";
-import { renderEquityCurve, renderPerformanceBars } from "./charts.js";
-import { emotionEmoji, emotionLabel } from "./emotions.js";
-import { getUserSettings, saveUserSettings, hasAnyRuleConfigured } from "./settings.js";
-import { computeDailyDiscipline, computeStreak, localDateKey } from "./discipline.js";
+import { getOrCreateHousehold, getMyMembership, updateMyIncomePercentage } from "./household.js";
+import { listCategories, createCategory, updateCategory, deleteCategory, computeHealth, STATUS_LABEL } from "./categories.js";
+import { listExpenses, sumByCategory, currentMonthRange } from "./expenses.js";
 
 const banner = document.getElementById("config-banner");
 document.getElementById("logout-btn").addEventListener("click", signOut);
 initMobileNav();
 
-let allTrades = [];
-let userSettings = null;
 let userId = null;
-let currentPeriod = "all";
+let household = null;
+let categories = [];
+let sums = new Map();
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
 
 function formatCurrency(v) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -36,260 +34,211 @@ function statTile(label, value, opts = {}) {
     </div>`;
 }
 
-function renderStats(metrics) {
-  const grid = document.getElementById("stat-grid");
-  const winRate = metrics.winRate == null ? "—" : `${(metrics.winRate * 100).toFixed(0)}%`;
-  const rr = metrics.avgRR == null ? "—" : `${metrics.avgRR.toFixed(2)}R`;
-  const expectancy = metrics.expectancy == null ? "—" : formatCurrency(metrics.expectancy);
-  const pnlDirection = metrics.totalPnl >= 0 ? "up" : "down";
+// ---------- Resumo ----------
+function renderSummary() {
+  const totalSpent = [...sums.values()].reduce((a, b) => a + b, 0);
+  const totalBudget = categories.reduce((a, c) => a + (c.budget_amount || 0), 0);
 
-  grid.innerHTML = [
-    statTile("Resultado total", formatCurrency(metrics.totalPnl), { direction: pnlDirection }),
-    statTile("Taxa de acerto", winRate, { delta: `${metrics.closedCount} trades fechados` }),
-    statTile("Risco/retorno médio", rr),
-    statTile("Expectância por trade", expectancy),
-    statTile("Drawdown máximo", formatCurrency(metrics.maxDrawdown), {
-      delta: metrics.maxDrawdownPercent ? `${metrics.maxDrawdownPercent.toFixed(1)}% do pico` : null,
-      direction: metrics.maxDrawdown > 0 ? "down" : "",
-    }),
+  let redCount = 0;
+  let yellowCount = 0;
+  for (const c of categories) {
+    const status = computeHealth(c, sums.get(c.id) || 0).status;
+    if (status === "red") redCount++;
+    if (status === "yellow") yellowCount++;
+  }
+
+  document.getElementById("summary-grid").innerHTML = [
+    statTile("Gasto no mês", formatCurrency(totalSpent)),
+    statTile("Total combinado", formatCurrency(totalBudget)),
+    statTile("Órgãos no vermelho", String(redCount), redCount > 0 ? { direction: "down" } : {}),
+    statTile("Órgãos em alerta", String(yellowCount)),
   ].join("");
 }
 
-function renderAlerts(alerts) {
-  const el = document.getElementById("pattern-alerts");
-  if (!alerts.length) {
-    el.innerHTML = "";
-    return;
-  }
-  el.innerHTML = alerts
-    .map(
-      (a) => `
-      <div class="alert ${a.severity}">
-        <span class="alert-icon">${a.severity === "critical" ? "🚨" : "⚠️"}</span>
-        <div>
-          <strong>${a.title}</strong>
-          ${a.description}
-        </div>
-      </div>`
-    )
-    .join("");
+// ---------- Órgãos ----------
+function healthClass(status) {
+  return status;
 }
 
-function renderRecentTrades(trades) {
-  const el = document.getElementById("recent-trades");
-  const closed = trades
-    .filter((t) => t.exit_price != null)
-    .sort((a, b) => new Date(b.exit_at) - new Date(a.exit_at))
-    .slice(0, 8);
+function orgCardHtml(category) {
+  const spent = sums.get(category.id) || 0;
+  const health = computeHealth(category, spent);
+  const pct = health.percent == null ? 0 : Math.min(health.percent, 100);
 
-  if (!closed.length) {
-    el.innerHTML = '<div class="empty-state">Nenhum trade fechado nesse período. <a href="trades.html">Registre um trade</a>.</div>';
-    return;
-  }
+  const amountsLine =
+    category.budget_amount == null
+      ? `${formatCurrency(spent)} gastos · sem acordo definido`
+      : `${formatCurrency(spent)} de ${formatCurrency(category.budget_amount)}${
+          health.percent > 100 ? ` (${Math.round(health.percent)}%)` : ""
+        }`;
 
-  el.innerHTML = `
-    <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Data</th><th>Ativo</th><th>Lado</th><th>Resultado</th><th>Emoção antes</th><th>Emoção depois</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${closed
-          .map((t) => {
-            const p = pnl(t);
-            return `
-            <tr>
-              <td>${new Date(t.exit_at).toLocaleDateString("pt-BR")}</td>
-              <td>${t.asset}</td>
-              <td>${t.side}</td>
-              <td><span class="pill ${p >= 0 ? "win" : "loss"}">${formatCurrency(p)}</span></td>
-              <td class="emoji-emotion" title="${emotionLabel(t.emotion_before)}">${emotionEmoji(t.emotion_before)} ${emotionLabel(t.emotion_before)}</td>
-              <td class="emoji-emotion" title="${emotionLabel(t.emotion_after)}">${emotionEmoji(t.emotion_after)} ${emotionLabel(t.emotion_after)}</td>
-            </tr>`;
-          })
-          .join("")}
-      </tbody>
-    </table>
+  return `
+    <div class="org-card" data-category-id="${category.id}">
+      <div class="org-header">
+        <div>
+          <div class="org-name">${escapeHtml(category.name)}</div>
+          <div class="org-amounts">${amountsLine}</div>
+        </div>
+        <div class="org-actions">
+          <button class="icon-btn edit-org-btn" data-id="${category.id}" title="Editar">✏️</button>
+          <button class="icon-btn delete-org-btn" data-id="${category.id}" title="Excluir">🗑️</button>
+        </div>
+      </div>
+      <div class="meter-track">
+        <div class="meter-fill ${healthClass(health.status)}" style="width: ${pct}%"></div>
+      </div>
+      <div class="org-status ${healthClass(health.status)}">${STATUS_LABEL[health.status]}</div>
+      <div class="org-edit-form" id="edit-form-${category.id}" style="display: none; margin-top: 14px"></div>
     </div>`;
 }
 
-// ---------- Período ----------
-function filterByPeriod(trades, period) {
-  if (period === "all") return trades;
-  const now = new Date();
-  if (period === "today") {
-    const todayKey = localDateKey(now);
-    return trades.filter((t) => localDateKey(t.entry_at) === todayKey);
-  }
-  const days = period === "7d" ? 7 : 30;
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - days);
-  return trades.filter((t) => new Date(t.entry_at) >= cutoff);
+function editFormHtml(category) {
+  return `
+    <div class="form-grid">
+      <div class="field">
+        <label>Nome do órgão</label>
+        <input type="text" class="edit-name" value="${escapeHtml(category.name)}" />
+      </div>
+      <div class="field">
+        <label>Acordo mensal (R$)</label>
+        <input type="number" class="edit-budget" min="0" step="any" value="${category.budget_amount ?? ""}" placeholder="Sem limite definido" />
+      </div>
+      <div class="field">
+        <label>Alerta amarelo (%)</label>
+        <input type="number" class="edit-yellow" min="0" max="200" value="${category.threshold_yellow}" />
+      </div>
+      <div class="field">
+        <label>Alerta vermelho (%)</label>
+        <input type="number" class="edit-red" min="0" max="200" value="${category.threshold_red}" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn cancel-edit-btn" data-id="${category.id}">Cancelar</button>
+      <button type="button" class="btn btn-primary save-edit-btn" data-id="${category.id}">Salvar</button>
+    </div>`;
 }
 
-function renderPerformanceSection() {
-  const filtered = filterByPeriod(allTrades, currentPeriod);
-  const metrics = computeMetrics(filtered);
-  renderStats(metrics);
-  renderRecentTrades(filtered);
-  renderEquityCurve(document.getElementById("equity-chart"), metrics.equityCurve);
-  renderPerformanceBars(document.getElementById("asset-chart"), performanceByAsset(filtered));
-  renderPerformanceBars(
-    document.getElementById("weekday-chart"),
-    performanceByWeekday(filtered).filter((d) => d.count > 0)
+async function renderOrgGrid() {
+  const grid = document.getElementById("org-grid");
+  if (!categories.length) {
+    grid.innerHTML = '<div class="empty-state">Nenhum órgão cadastrado ainda.</div>';
+    return;
+  }
+  grid.innerHTML = categories.map(orgCardHtml).join("");
+
+  grid.querySelectorAll(".edit-org-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const category = categories.find((c) => c.id === btn.dataset.id);
+      const formEl = document.getElementById(`edit-form-${category.id}`);
+      formEl.innerHTML = editFormHtml(category);
+      formEl.style.display = "block";
+      wireEditForm(category);
+    })
+  );
+
+  grid.querySelectorAll(".delete-org-btn").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir este órgão? Os gastos já registrados nele continuam existindo, mas ele some da lista.")) return;
+      await deleteCategory(btn.dataset.id);
+      await refresh();
+    })
   );
 }
 
-function setupPeriodSelector() {
-  const wrap = document.getElementById("period-selector");
-  wrap.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      currentPeriod = btn.dataset.period;
-      wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
-      renderPerformanceSection();
+function wireEditForm(category) {
+  const formEl = document.getElementById(`edit-form-${category.id}`);
+  formEl.querySelector(".cancel-edit-btn").addEventListener("click", () => {
+    formEl.style.display = "none";
+  });
+  formEl.querySelector(".save-edit-btn").addEventListener("click", async () => {
+    const name = formEl.querySelector(".edit-name").value.trim();
+    const budgetRaw = formEl.querySelector(".edit-budget").value;
+    const yellow = Number(formEl.querySelector(".edit-yellow").value || 80);
+    const red = Number(formEl.querySelector(".edit-red").value || 100);
+
+    if (!name) {
+      alert("Dê um nome pro órgão.");
+      return;
+    }
+
+    await updateCategory(category.id, {
+      name,
+      budget_amount: budgetRaw === "" ? null : Number(budgetRaw),
+      threshold_yellow: yellow,
+      threshold_red: red,
     });
+    await refresh();
   });
 }
 
-// ---------- Disciplina ----------
-function scoreClass(score, threshold) {
-  if (score >= threshold) return "good";
-  if (score >= threshold - 20) return "warning";
-  return "critical";
-}
-
-function formatDateLabel(dateKey) {
-  const [y, m, d] = dateKey.split("-");
-  return `${d}/${m}`;
-}
-
-function settingsFormHtml(settings) {
-  return `
-    <form id="discipline-settings-form" style="margin-top: 16px">
-      <div class="form-grid">
-        <div class="field">
-          <label for="settings-max-position">Tamanho máx. de posição (R$)</label>
-          <input type="number" id="settings-max-position" min="0" step="any" value="${settings.max_position_size ?? ""}" placeholder="Ex: 5000" />
-        </div>
-        <div class="field">
-          <label for="settings-start-time">Horário permitido — início</label>
-          <input type="time" id="settings-start-time" value="${settings.trading_start_time ?? ""}" />
-        </div>
-        <div class="field">
-          <label for="settings-end-time">Horário permitido — fim</label>
-          <input type="time" id="settings-end-time" value="${settings.trading_end_time ?? ""}" />
-        </div>
-        <div class="field">
-          <label for="settings-threshold">Score mínimo pro streak (%)</label>
-          <input type="number" id="settings-threshold" min="0" max="100" step="1" value="${settings.discipline_threshold ?? 80}" />
-        </div>
-      </div>
-      <p class="hint" style="margin-top: 10px">
-        Deixe um campo em branco pra não avaliar essa regra. Ex: se não preencher tamanho máximo
-        de posição, o score não considera isso.
-      </p>
-      <div class="form-actions">
-        <button type="button" class="btn" id="discipline-cancel-btn" style="display: none">Cancelar</button>
-        <button type="submit" class="btn btn-primary">Salvar regras</button>
-      </div>
-      <p class="error-text" id="discipline-settings-error" style="display: none"></p>
-    </form>`;
-}
-
-function wireSettingsForm(showCancel) {
-  const form = document.getElementById("discipline-settings-form");
-  const cancelBtn = document.getElementById("discipline-cancel-btn");
-  if (showCancel) {
-    cancelBtn.style.display = "inline-block";
-    cancelBtn.addEventListener("click", () => renderDisciplineCard());
+document.getElementById("add-org-btn").addEventListener("click", () => {
+  const wrap = document.getElementById("add-org-form-wrap");
+  const isOpen = wrap.style.display === "block";
+  if (isOpen) {
+    wrap.style.display = "none";
+    return;
   }
+  wrap.innerHTML = `
+    <h2>Novo órgão</h2>
+    <div class="field" style="max-width: 320px">
+      <label for="new-org-name">Nome</label>
+      <input type="text" id="new-org-name" placeholder="Ex: Educação, Pet, Assinaturas" />
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="save-new-org-btn">Adicionar</button>
+    </div>`;
+  wrap.style.display = "block";
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const errorEl = document.getElementById("discipline-settings-error");
+  document.getElementById("save-new-org-btn").addEventListener("click", async () => {
+    const name = document.getElementById("new-org-name").value.trim();
+    if (!name) return;
+    await createCategory(household.id, name);
+    wrap.style.display = "none";
+    await refresh();
+  });
+});
+
+// ---------- Participação na renda ----------
+async function renderIncomeCard() {
+  const membership = await getMyMembership(household.id, userId);
+  const card = document.getElementById("income-card");
+  card.innerHTML = `
+    <h2>Sua participação na renda da casa</h2>
+    <p class="hint">
+      Usado no futuro pra dividir contas fixas de forma proporcional (não necessariamente 50/50).
+    </p>
+    <div class="field" style="max-width: 200px; margin-top: 10px">
+      <label for="income-percentage">Meu percentual (%)</label>
+      <input type="number" id="income-percentage" min="0" max="100" step="any" value="${membership.income_percentage ?? ""}" placeholder="Ex: 60" />
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="save-income-btn">Salvar</button>
+    </div>
+    <p class="error-text" id="income-error" style="display: none"></p>`;
+
+  document.getElementById("save-income-btn").addEventListener("click", async () => {
+    const raw = document.getElementById("income-percentage").value;
+    const errorEl = document.getElementById("income-error");
     errorEl.style.display = "none";
-
-    const val = (id) => document.getElementById(id).value;
-    const settings = {
-      max_position_size: val("settings-max-position") === "" ? null : Number(val("settings-max-position")),
-      trading_start_time: val("settings-start-time") || null,
-      trading_end_time: val("settings-end-time") || null,
-      discipline_threshold: val("settings-threshold") === "" ? 80 : Number(val("settings-threshold")),
-    };
-
     try {
-      await saveUserSettings(userId, settings);
-      userSettings = { ...userSettings, ...settings };
-      renderDisciplineCard();
+      await updateMyIncomePercentage(household.id, userId, raw === "" ? null : Number(raw));
     } catch (err) {
-      errorEl.textContent = err.message || "Não foi possível salvar as regras.";
+      errorEl.textContent = err.message || "Não foi possível salvar.";
       errorEl.style.display = "block";
     }
   });
 }
 
-function renderDisciplineCard() {
-  const card = document.getElementById("discipline-card");
+// ---------- Carregamento ----------
+async function refresh() {
+  const [cats, { start, end }] = [await listCategories(household.id), currentMonthRange()];
+  const expenses = await listExpenses(household.id, { start, end });
 
-  if (!hasAnyRuleConfigured(userSettings)) {
-    card.innerHTML = `
-      <h2>Configure suas regras de disciplina</h2>
-      <p class="hint">
-        O score de disciplina é o número central deste app — mais importante que o resultado
-        financeiro. Defina pelo menos uma regra pra começar a acompanhar (tamanho máximo de
-        posição e/ou horário permitido de operação).
-      </p>
-      ${settingsFormHtml(userSettings)}`;
-    wireSettingsForm(false);
-    return;
-  }
+  categories = cats;
+  sums = sumByCategory(expenses);
 
-  const closedTrades = allTrades.filter((t) => t.exit_price != null);
-  const dailyDiscipline = computeDailyDiscipline(closedTrades, userSettings);
-
-  if (!dailyDiscipline.length) {
-    card.innerHTML = `
-      <h2>Score de disciplina</h2>
-      <p class="hint">Nenhum trade fechado ainda se encaixa nas suas regras. Registre e feche trades para começar a pontuar.</p>
-      <button class="btn" id="discipline-edit-btn">Editar regras</button>
-      <div id="discipline-settings-form-wrap" style="display: none"></div>`;
-    document.getElementById("discipline-edit-btn").addEventListener("click", () => {
-      document.getElementById("discipline-settings-form-wrap").innerHTML = settingsFormHtml(userSettings);
-      document.getElementById("discipline-settings-form-wrap").style.display = "block";
-      wireSettingsForm(true);
-    });
-    return;
-  }
-
-  const today = dailyDiscipline[0];
-  const isToday = today.date === localDateKey(new Date());
-  const { count: streak } = computeStreak(dailyDiscipline, userSettings.discipline_threshold);
-
-  card.innerHTML = `
-    <div class="discipline-grid">
-      <div>
-        <div class="stat-label">Score de disciplina ${isToday ? "(hoje)" : `(${formatDateLabel(today.date)})`}</div>
-        <div class="hero-figure ${scoreClass(today.score, userSettings.discipline_threshold)}">${today.score}</div>
-        <div class="hint">${today.passed}/${today.applicable} regras cumpridas</div>
-      </div>
-      <div>
-        <div class="stat-label">Streak de disciplina</div>
-        <div class="hero-figure">🔥 ${streak}</div>
-        <div class="hint">dias com trade e score ≥ ${userSettings.discipline_threshold}%</div>
-      </div>
-      <button class="btn" id="discipline-edit-btn">Editar regras</button>
-    </div>
-    <div id="discipline-settings-form-wrap" style="display: none"></div>`;
-
-  document.getElementById("discipline-edit-btn").addEventListener("click", () => {
-    const wrap = document.getElementById("discipline-settings-form-wrap");
-    wrap.innerHTML = settingsFormHtml(userSettings);
-    wrap.style.display = "block";
-    wireSettingsForm(true);
-    wrap.scrollIntoView({ behavior: "smooth" });
-  });
+  renderSummary();
+  await renderOrgGrid();
 }
 
 async function main() {
@@ -297,13 +246,6 @@ async function main() {
     banner.className = "config-banner";
     banner.textContent =
       "Configure js/config.js com a URL e a chave anon do seu projeto Supabase para carregar seus dados.";
-    renderStats(computeMetrics([]));
-    renderAlerts([]);
-    renderRecentTrades([]);
-    renderEquityCurve(document.getElementById("equity-chart"), []);
-    renderPerformanceBars(document.getElementById("asset-chart"), []);
-    renderPerformanceBars(document.getElementById("weekday-chart"), []);
-    setupPeriodSelector();
     return;
   }
 
@@ -311,23 +253,13 @@ async function main() {
   if (!session) return;
   userId = session.user.id;
 
-  const [{ data: trades, error }, settings] = await Promise.all([
-    supabase.from("trades").select("*").order("entry_at", { ascending: false }),
-    getUserSettings(),
-  ]);
-
-  if (error) {
-    document.querySelector(".container").innerHTML = `<p class="error-text">Erro ao carregar trades: ${error.message}</p>`;
-    return;
+  try {
+    household = await getOrCreateHousehold(userId);
+    await refresh();
+    await renderIncomeCard();
+  } catch (err) {
+    document.querySelector(".container").innerHTML = `<p class="error-text">Erro ao carregar a casa: ${err.message}</p>`;
   }
-
-  allTrades = trades;
-  userSettings = settings;
-
-  renderDisciplineCard();
-  renderAlerts(detectPatterns(allTrades));
-  setupPeriodSelector();
-  renderPerformanceSection();
 }
 
 main();

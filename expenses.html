@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gastos — Casa Viva</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="config-banner"></div>
+
+  <header class="topnav">
+    <div class="brand">🏡 Casa Viva</div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">☰</button>
+    <nav id="main-nav">
+      <a href="index.html">Raio-X</a>
+      <a href="expenses.html" class="active">Gastos</a>
+      <button class="btn" id="logout-btn">Sair</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1 class="page-title">Registrar gasto</h1>
+    <p class="page-subtitle">Cada gasto atualiza na hora o termômetro do órgão correspondente.</p>
+
+    <div class="card">
+      <form id="expense-form">
+        <div class="form-grid">
+          <div class="field">
+            <label for="amount">Valor (R$)</label>
+            <input type="number" id="amount" min="0" step="any" required />
+          </div>
+          <div class="field">
+            <label for="category_id">Órgão</label>
+            <select id="category_id" required></select>
+          </div>
+          <div class="field">
+            <label for="expense_date">Data</label>
+            <input type="date" id="expense_date" required />
+          </div>
+          <div class="field">
+            <label for="payment_method">Forma de pagamento</label>
+            <select id="payment_method"></select>
+          </div>
+          <div class="field span-2">
+            <label for="description">Descrição (opcional)</label>
+            <input type="text" id="description" placeholder="Ex: Supermercado, conta de luz..." />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="save-btn">Salvar gasto</button>
+        </div>
+        <p class="error-text" id="form-error" style="display: none"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px">
+        <h2 style="margin: 0">Gastos deste mês</h2>
+      </div>
+      <div id="expenses-table" style="margin-top: 14px"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/expenses-page.js"></script>
+</body>
+</html>

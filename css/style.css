@@ -357,6 +357,113 @@ a {
   }
 }
 
+/* ---------- Órgãos (termômetro de saúde) ---------- */
+.org-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.org-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.org-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.org-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.org-amounts {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.meter-track {
+  height: 10px;
+  border-radius: 100px;
+  background: var(--grid);
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 100px;
+  transition: width 0.2s;
+}
+
+.meter-fill.green {
+  background: var(--good);
+}
+
+.meter-fill.yellow {
+  background: var(--warning);
+}
+
+.meter-fill.red {
+  background: var(--critical);
+}
+
+.meter-fill.unset {
+  background: var(--baseline);
+}
+
+.org-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.org-status.green {
+  color: var(--success-text);
+}
+
+.org-status.yellow {
+  color: var(--warning);
+}
+
+.org-status.red {
+  color: var(--critical);
+}
+
+.org-status.unset {
+  color: var(--text-muted);
+}
+
+.org-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.icon-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--page);
+  color: var(--text-primary);
+}
+
 /* ---------- Cards / panels ---------- */
 .card {
   background: var(--surface-1);
@@ -452,10 +559,6 @@ tr:last-child td {
 .pill.loss {
   color: var(--critical);
   background: color-mix(in srgb, var(--critical) 14%, transparent);
-}
-
-.emoji-emotion {
-  font-size: 14px;
 }
 
 /* ---------- Forms ---------- */

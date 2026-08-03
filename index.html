@@ -3,64 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — Diário de Trades</title>
+  <title>Casa Viva — Raio-X da casa</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <div id="config-banner"></div>
 
   <header class="topnav">
-    <div class="brand">📔 Diário de Trades</div>
+    <div class="brand">🏡 Casa Viva</div>
     <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">☰</button>
     <nav id="main-nav">
-      <a href="index.html" class="active">Dashboard</a>
-      <a href="trades.html">Trades</a>
-      <a href="import.html">Importar</a>
+      <a href="index.html" class="active">Raio-X</a>
+      <a href="expenses.html">Gastos</a>
       <button class="btn" id="logout-btn">Sair</button>
     </nav>
   </header>
 
   <main class="container">
-    <h1 class="page-title">Visão geral</h1>
-    <p class="page-subtitle">Disciplina primeiro, performance depois.</p>
+    <h1 class="page-title">Raio-X da casa</h1>
+    <p class="page-subtitle">Cada órgão tem saúde própria — cuide deles, não só do saldo.</p>
 
-    <div class="card" id="discipline-card"></div>
+    <div class="stat-grid" id="summary-grid"></div>
 
-    <div id="pattern-alerts"></div>
-
-    <div class="card" style="margin-bottom: 14px">
-      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px">
-        <h2 style="margin: 0">Performance</h2>
-        <div class="tabbar" id="period-selector" style="width: auto">
-          <button type="button" data-period="today">Hoje</button>
-          <button type="button" data-period="7d">7 dias</button>
-          <button type="button" data-period="30d">30 dias</button>
-          <button type="button" data-period="all" class="active">Tudo</button>
-        </div>
-      </div>
+    <div class="card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px">
+      <h2 style="margin: 0">Órgãos financeiros</h2>
+      <button class="btn btn-primary" id="add-org-btn">+ Novo órgão</button>
     </div>
 
-    <div class="stat-grid" id="stat-grid"></div>
+    <div id="add-org-form-wrap" style="display: none" class="card"></div>
 
-    <div class="card">
-      <h2>Curva de patrimônio</h2>
-      <div id="equity-chart"></div>
-    </div>
+    <div class="org-grid" id="org-grid"></div>
 
-    <div class="card">
-      <h2>Desempenho por ativo</h2>
-      <div id="asset-chart"></div>
-    </div>
-
-    <div class="card">
-      <h2>Desempenho por dia da semana</h2>
-      <div id="weekday-chart"></div>
-    </div>
-
-    <div class="card">
-      <h2>Trades recentes</h2>
-      <div id="recent-trades"></div>
-    </div>
+    <div class="card" id="income-card"></div>
   </main>
 
   <script type="module" src="js/dashboard.js"></script>
